@@ -30,7 +30,7 @@ jobs:
         run: |
           (cd backend && docker build -t calc-be:latest .)
           (cd frontend && npm ci && npm run build)
-          (cd frontend && docker bulid -t calc-fe:latest .)
+          (cd frontend && docker build -t calc-fe:latest .)
       - name: Health Check for the Built Images
         run: |
           docker run -d -p 8000:3031 --name test-be calc-be:latest
