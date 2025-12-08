@@ -1,0 +1,5 @@
+container_image_be = "conu/calc-backend:latest"
+container_image_fe = "conu/calc-frontend:latest"
+frontend_url = "http://localhost:30030"
+backend_url = "http://localhost:30031"
+kubernetes_config_path = "~/.kube/config"
