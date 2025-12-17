@@ -17,6 +17,10 @@ on:
           - warning
           - debug
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   build:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
@@ -26,11 +30,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: main
+
       - name: Build Docker Images
         run: |
           (cd backend && docker build -t calc-be:latest .)
           (cd frontend && npm ci && npm run build)
           (cd frontend && docker build -t calc-fe:latest .)
+
       - name: Health Check for the Built Images
         run: |
           docker run -d -p 8000:3031 --name test-be calc-be:latest
@@ -38,6 +44,44 @@ jobs:
           sleep 5
           curl --fail "http://localhost:8000/healthcheck" || exit 1
           curl --fail "http://localhost:9000" || exit 1
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.ECR_ACCOUNT_ID }}:role/GitHubAction-AssumeRoleWithAction
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Verify Caller Identity
+        run: aws sts get-caller-identity
+
+      - name: Image Push
+        run: |
+          VERSION_TAG=$(date +'%Y%m%d-%H%M%S')
+          
+          REGISTRY_URI=${{ secrets.ECR_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com
+          
+          IMAGE_URI_BE=${REGISTRY_URI}/${{ vars.ECR_REPOSITORY_BE }}:${VERSION_TAG}
+          IMAGE_URI_FE=${REGISTRY_URI}/${{ vars.ECR_REPOSITORY_FE }}:${VERSION_TAG}
+          
+          docker tag calc-be:latest ${IMAGE_URI_BE}
+          docker tag calc-fe:latest ${IMAGE_URI_FE}
+          
+          aws ecr get-login-password | docker login --username AWS --password-stdin ${REGISTRY_URI}
+          
+          docker push ${IMAGE_URI_BE}
+          docker push ${IMAGE_URI_FE}
+          
+          echo "${IMAGE_URI_BE}" > image_uri_be.txt
+          echo "${IMAGE_URI_FE}" > image_uri_fe.txt
+
+      - name: Upload Image URI Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-uris
+          path: |
+            image_uri_be.txt
+            image_uri_fe.txt
+
       - name: Stop and Remove the Test Containers
         if: always()
         run: |
