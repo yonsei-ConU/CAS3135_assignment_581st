@@ -48,6 +48,9 @@ resource "kubernetes_deployment" "backend" {
 				}
 			}
 			spec {
+				image_pull_secrets {
+      				name = "aws-ecr-cred"
+    			}
 				container {
 					name = "backend"
 					image = var.container_image_be

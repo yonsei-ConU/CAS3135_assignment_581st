@@ -17,6 +17,9 @@ resource "kubernetes_deployment" "frontend" {
         }
       }
       spec {
+				image_pull_secrets {
+      				name = "aws-ecr-cred"
+    			}
         container {
           name = "frontend"
           image = var.container_image_fe
